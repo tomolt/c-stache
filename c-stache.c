@@ -24,7 +24,7 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 	const char *startDelim = "{{";
 	const char *endDelim   = "}}";
 	const char *ptr = text;
-	CStacheTag *tag;
+	CStacheTag *tag, *top = NULL;
 
 	tpl->text   = text;
 	tpl->length = length;
@@ -42,7 +42,7 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 		/* tag start */
 		tag->pointer = ptr;
 		ptr += strlen(startDelim);
-		if (strchr("&#/^!>", *ptr))
+		if (strchr("&#/^", *ptr))
 			tag->kind = *(ptr++);
 		else
 			tag->kind = 0;
@@ -51,8 +51,8 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 		/* key */
 		tag->keyStart = ptr - tag->pointer;
 		while (iskey(*ptr)) ptr++;
-		tag->keyEnd = ptr - tag->pointer;
-		if (tag->keyStart == tag->keyEnd)
+		tag->keyLength = ptr - (tag->pointer + tag->keyStart);
+		if (!tag->keyLength)
 			return -1;
 
 		/* tag end */
@@ -60,45 +60,70 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 		if (strcmp(ptr, endDelim))
 			return -1;
 		ptr += strlen(endDelim);
+		tag->tagLength = ptr - tag->pointer;
 	}
+
+	for (tag = tpl->tags; tag < tpl->tags + tpl->numTags; tag++) {
+		if (tag->kind == '#' || tag->kind == '^') {
+			tag->buddy = top;
+			top = tag;
+		} else if (tag->kind == '/') {
+			if (!top || tag->keyLength != top->keyLength
+			  || memcmp(tag->pointer + tag->keyStart, top->pointer + top->keyStart, tag->keyLength))
+				return -1;
+			tag->buddy = top;
+			top = top->buddy;
+			tag->buddy->buddy = tag;
+		}
+		tag++;
+	}
+	if (top)
+		return -1;
 
 	return 0;
 }
 
-#if 0
 void
-c_stache_render(const char *text)
+c_stache_render(const CStacheTemplate *tpl, CStacheCallbacks *cbs)
 {
-	char *cur = text;
-	size_t tagidx = 0;
+	char key[256];
+	CStacheTag *tag = &tpl->tags[0];
+	const char *cur = tpl->text;
 
-	for (;;) {
-		char *end = ;
+	while (tag < tpl->tags + tpl->numTags) {
+		if (cur < tag->pointer)
+			cbs->write(cbs->userdata, cur, tag->pointer - cur);
 
-		cb->write_out(cb->userdata, cur, end - cur);
+		if (tag->keyLength + 1 > sizeof key)
+			return;
+		memcpy(key, tag->pointer + tag->keyStart, tag->keyLength);
+		key[tag->keyLength] = 0;
 
-		switch (tags[tagidx].kind) {
+		switch (tag->kind) {
 		case '&':
+			cbs->subst(cbs->userdata, key, 0);
 			break;
 		case '#':
+			if (!cbs->enter(cbs->userdata, key))
+				tag = tag->buddy;
 			break;
 		case '/':
+			if (cbs->next(cbs->userdata))
+				tag = tag->buddy;
 			break;
 		case '^':
-			break;
-		case '!':
-			break;
-		case '>':
+			if (!cbs->isempty(cbs->userdata, key))
+				tag = tag->buddy;
 			break;
 		default:
+			cbs->subst(cbs->userdata, key, 1);
 		}
 		
-		cur = end;
+		cur = tag->pointer + tag->tagLength;
+		tag++;
 	}
 
-	cb->write_out(cb->userdata, cur, strlen(cur));
-
-	cb->release(cb->userdata);
+	if (cur - tpl->text < tpl->length)
+		cbs->write(cbs->userdata, cur, tpl->length - (cur - tpl->text));
 }
-#endif
 

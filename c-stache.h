@@ -5,21 +5,21 @@ typedef struct c_stache_tag       CStacheTag;
 typedef struct c_stache_template  CStacheTemplate;
 
 struct c_stache_callbacks {
-	void        (*enter )(void *userdata, const char *section);
-	void        (*leave )(void *userdata, const char *section);
-	void        (*next  )(void *userdata);
-	const char *(*lookup)(void *userdata, const char *key, int escape);
-	const char *(*load  )(void *userdata, const char *filename);
-	void        (*write )(void *userdata, const char *data, size_t length);
+	int  (*enter  )(void *userdata, const char *section);
+	int  (*next   )(void *userdata);
+	void (*subst  )(void *userdata, const char *key, int escape);
+	void (*write  )(void *userdata, const char *data, size_t length);
+	int  (*isempty)(void *userdata, const char *key);
 
 	void *userdata;
 };
 
 struct c_stache_tag {
+	CStacheTag    *buddy;
 	const char    *pointer;
 	unsigned short keyStart;
-	unsigned short keyEnd;
-	unsigned short tagEnd;
+	unsigned short keyLength;
+	unsigned short tagLength;
 	char           kind;
 };
 
@@ -31,5 +31,6 @@ struct c_stache_template {
 	size_t      length;
 };
 
-int c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length);
+int  c_stache_parse (CStacheTemplate *tpl, const char *text, size_t length);
+void c_stache_render(const CStacheTemplate *tpl, CStacheCallbacks *cbs);
 
