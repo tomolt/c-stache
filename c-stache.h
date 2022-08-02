@@ -7,9 +7,9 @@ typedef struct c_stache_template  CStacheTemplate;
 struct c_stache_callbacks {
 	int  (*enter  )(void *userdata, const char *section);
 	int  (*next   )(void *userdata);
+	int  (*isempty)(void *userdata, const char *section);
 	void (*subst  )(void *userdata, const char *key, int escape);
 	void (*write  )(void *userdata, const char *data, size_t length);
-	int  (*isempty)(void *userdata, const char *key);
 
 	void *userdata;
 };

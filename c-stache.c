@@ -26,6 +26,7 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 	const char *ptr = text;
 	CStacheTag *tag, *top = NULL;
 
+	memset(tpl, 0, sizeof *tpl);
 	tpl->text   = text;
 	tpl->length = length;
 
@@ -57,7 +58,7 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 
 		/* tag end */
 		while (isspace(*ptr)) ptr++;
-		if (strcmp(ptr, endDelim))
+		if (strncmp(ptr, endDelim, strlen(endDelim)))
 			return -1;
 		ptr += strlen(endDelim);
 		tag->tagLength = ptr - tag->pointer;
