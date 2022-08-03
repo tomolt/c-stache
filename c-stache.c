@@ -76,7 +76,6 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 			top = top->buddy;
 			tag->buddy->buddy = tag;
 		}
-		tag++;
 	}
 	if (top)
 		return -1;

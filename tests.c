@@ -46,7 +46,7 @@ write_cb(void *userdata, const char *data, size_t length)
 int
 main()
 {
-	const char *text = "Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}\n";
+	const char *text = "{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}\n{{/subjects}}\n";
 
 	dh_init(stderr);
 
