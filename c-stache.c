@@ -18,6 +18,34 @@ iskey(int c)
 	return lut[c];
 }
 
+size_t
+c_stache_escape_xml(const char **text, char *buf, size_t max)
+{
+	const char *subst;
+	size_t len, written = 0;
+	while (written < max) {
+		switch (**text) {
+		case '<':  subst = "&lt;";   break;
+		case '>':  subst = "&gt;";   break;
+		case '\'': subst = "&#39;";  break;
+		case '&':  subst = "&amp;";  break;
+		case '"':  subst = "&quot;"; break;
+		case 0:    return written;
+		default:
+			buf[written++] = **text;
+			(*text)++;
+			continue;
+		}
+
+		len = strlen(subst);
+		if (written + len > max) break;
+		memcpy(buf + written, subst, len);
+		written += len;
+		(*text)++;
+	}
+	return written;
+}
+
 int
 c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 {

@@ -31,6 +31,7 @@ struct c_stache_template {
 	size_t      length;
 };
 
-int  c_stache_parse (CStacheTemplate *tpl, const char *text, size_t length);
-void c_stache_render(const CStacheTemplate *tpl, CStacheCallbacks *cbs);
+size_t c_stache_escape_xml(const char **text, char *buf, size_t max);
+int    c_stache_parse (CStacheTemplate *tpl, const char *text, size_t length);
+void   c_stache_render(const CStacheTemplate *tpl, CStacheCallbacks *cbs);
 
