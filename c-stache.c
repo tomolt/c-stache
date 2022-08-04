@@ -4,20 +4,6 @@
 
 #include "c-stache.h"
 
-static inline int
-iskey(int c)
-{
-	const char lut[256] = {
-		['0' ... '9'] = 1,
-		['a' ... 'z'] = 1,
-		['A' ... 'Z'] = 1,
-		['_'] = 1,
-		['-'] = 1,
-		['.'] = 1,
-	};
-	return lut[c];
-}
-
 size_t
 c_stache_escape_xml(const char **text, char *buf, size_t max)
 {
@@ -44,6 +30,20 @@ c_stache_escape_xml(const char **text, char *buf, size_t max)
 		(*text)++;
 	}
 	return written;
+}
+
+static inline int
+iskey(int c)
+{
+	const char lut[256] = {
+		['0' ... '9'] = 1,
+		['a' ... 'z'] = 1,
+		['A' ... 'Z'] = 1,
+		['_'] = 1,
+		['-'] = 1,
+		['.'] = 1,
+	};
+	return lut[c];
 }
 
 int
@@ -112,15 +112,17 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 }
 
 void
-c_stache_render(const CStacheTemplate *tpl, CStacheCallbacks *cbs)
+c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink)
 {
 	char key[256];
 	CStacheTag *tag = &tpl->tags[0];
 	const char *cur = tpl->text;
+	const char *tmp;
+	size_t written;
 
 	while (tag < tpl->tags + tpl->numTags) {
 		if (cur < tag->pointer)
-			cbs->write(cbs->userdata, cur, tag->pointer - cur);
+			sink->write(sink->userdata, cur, tag->pointer - cur);
 
 		if (tag->keyLength + 1 > sizeof key)
 			return;
@@ -129,22 +131,29 @@ c_stache_render(const CStacheTemplate *tpl, CStacheCallbacks *cbs)
 
 		switch (tag->kind) {
 		case '&':
-			cbs->subst(cbs->userdata, key, 0);
+			tmp = model->subst(model->userdata, key);
+			sink->write(sink->userdata, tmp, strlen(tmp));
 			break;
 		case '#':
-			if (!cbs->enter(cbs->userdata, key))
+			if (!model->enter(model->userdata, key))
 				tag = tag->buddy;
 			break;
 		case '/':
-			if (cbs->next(cbs->userdata))
+			if (model->next(model->userdata))
 				tag = tag->buddy;
 			break;
 		case '^':
-			if (!cbs->isempty(cbs->userdata, key))
+			if (!model->empty(model->userdata, key))
 				tag = tag->buddy;
 			break;
 		default:
-			cbs->subst(cbs->userdata, key, 1);
+			tmp = model->subst(model->userdata, key);
+			if (!tmp)
+				return;
+			while (*tmp) {
+				written = sink->escape(&tmp, key, sizeof key);
+				sink->write(sink->userdata, key, written);
+			}
 		}
 		
 		cur = tag->pointer + tag->tagLength;
@@ -152,6 +161,6 @@ c_stache_render(const CStacheTemplate *tpl, CStacheCallbacks *cbs)
 	}
 
 	if (cur - tpl->text < tpl->length)
-		cbs->write(cbs->userdata, cur, tpl->length - (cur - tpl->text));
+		sink->write(sink->userdata, cur, tpl->length - (cur - tpl->text));
 }
 

@@ -9,7 +9,7 @@ static int
 enter_cb(void *userdata, const char *section)
 {
 	(void) userdata;
-	printf("E\n");
+	printf("E %s\n", section);
 	return 1;
 }
 
@@ -22,40 +22,47 @@ next_cb(void *userdata)
 }
 
 static int
-isempty_cb(void *userdata, const char *section)
+empty_cb(void *userdata, const char *section)
 {
 	(void) userdata;
-	printf("?\n");
+	printf("? %s\n", section);
 	return 0;
 }
 
-static void
-subst_cb(void *userdata, const char *key, int escape)
+static const char *
+subst_cb(void *userdata, const char *key)
 {
 	(void) userdata;
-	printf(".<substituted value>\n");
+	(void) key;
+	return "<substituted value>";
 }
 
-static void
-write_cb(void *userdata, const char *data, size_t length)
+static int
+write_cb(void *userdata, const char *text, size_t length)
 {
 	(void) userdata;
-	printf(".%.*s\n", (int) length, data);
+	printf(".%.*s\n", (int) length, text);
+	return 0;
 }
 
 int
 main()
 {
-	const char *text = "{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}\n{{/subjects}}\n";
+	const char *text = "{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}!\n{{/subjects}}\n";
 
 	dh_init(stderr);
 
-	CStacheCallbacks callbacks = {
-		.enter   = enter_cb,
-		.next    = next_cb,
-		.isempty = isempty_cb,
-		.subst   = subst_cb,
-		.write   = write_cb,
+	CStacheModel model = {
+		.enter = enter_cb,
+		.next  = next_cb,
+		.empty = empty_cb,
+		.subst = subst_cb,
+		.userdata = NULL
+	};
+
+	CStacheSink sink = {
+		.escape = c_stache_escape_xml,
+		.write  = write_cb,
 		.userdata = NULL
 	};
 
@@ -64,7 +71,7 @@ main()
 		fprintf(stderr, "c_stache_parse()\n");
 		exit(1);
 	}
-	c_stache_render(&template, &callbacks);
+	c_stache_render(&template, &model, &sink);
 
 	dh_summarize();
 	return 0;
