@@ -68,28 +68,31 @@ read_cb(const char *name, size_t *length)
 static void
 test_complete_runthrough(void)
 {
+	int s;
+
 	dh_push("complete run-through");
 
 	CStacheEngine engine;
 	c_stache_start_engine(&engine, read_cb);
 
 	CStacheModel model = {
-		.enter = enter_cb,
-		.next  = next_cb,
-		.empty = empty_cb,
-		.subst = subst_cb,
+		.enter   = enter_cb,
+		.next    = next_cb,
+		.empty   = empty_cb,
+		.subst   = subst_cb,
 		.userptr = NULL
 	};
 
 	struct string_sink str = { 0 };
 	CStacheSink sink = {
-		.escape = c_stache_escape_xml,
-		.write  = write_cb,
+		.escape  = c_stache_escape_xml,
+		.write   = write_cb,
 		.userptr = &str
 	};
 
-	const CStacheTemplate *template;
-	template = c_stache_load_template(&engine, "simple");
+	CStacheTemplate *template;
+	s = c_stache_load_template(&engine, "simple", &template);
+	dh_assert(s == C_STACHE_OK);
 	dh_assert(template != NULL);
 
 	c_stache_render(template, &model, &sink);

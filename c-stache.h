@@ -31,7 +31,7 @@ struct c_stache_sink {
 
 struct c_stache_tag {
 	CStacheTag    *buddy;
-	const CStacheTemplate *otherTpl;
+	CStacheTemplate *otherTpl;
 	const char    *pointer;
 	unsigned short keyStart;
 	unsigned short tagLength;
@@ -59,8 +59,8 @@ struct c_stache_engine {
 void c_stache_start_engine   (CStacheEngine *engine, char *(*read)(const char *name, size_t *length));
 void c_stache_shutdown_engine(CStacheEngine *engine);
 
-const CStacheTemplate *c_stache_load_template(CStacheEngine *engine, const char *name);
-void                   c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl);
+int  c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate **template);
+void c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl);
 
 void c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink);
 
