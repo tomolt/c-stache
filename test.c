@@ -58,10 +58,10 @@ read_cb(const char *name, size_t *length)
 	}
 }
 
-int
-main()
+static void
+test_complete_runthrough(void)
 {
-	dh_init(stderr);
+	dh_push("complete run-through");
 
 	CStacheEngine engine;
 	c_stache_start_engine(&engine, read_cb);
@@ -82,14 +82,20 @@ main()
 
 	const CStacheTemplate *template;
 	template = c_stache_load_template(&engine, "simple");
-	if (!template) {
-		fprintf(stderr, "c_stache_load_template()\n");
-		exit(1);
-	}
+	dh_assert(template != NULL);
+
 	c_stache_render(template, &model, &sink);
 
 	c_stache_shutdown_engine(&engine);
 
+	dh_pop();
+}
+
+int
+main()
+{
+	dh_init(stderr);
+	dh_branch( test_complete_runthrough(); )
 	dh_summarize();
 	return 0;
 }
