@@ -74,6 +74,12 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, si
 
 		tag->kind = 0;
 		switch (*ptr) {
+		case '!':
+			tag->kind = *(ptr++);
+			if (!(ptr = strstr(ptr, endDelim)))
+				return -1;
+			break;
+
 		case '&': case '#': case '/': case '^': case '>':
 			tag->kind = *(ptr++);
 			/* fallthrough */
@@ -139,6 +145,8 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 		key[tag->keyLength] = 0;
 
 		switch (tag->kind) {
+		case '!':
+			break;
 		case '&':
 			tmp = model->subst(model->userdata, key);
 			sink->write(sink->userdata, tmp, strlen(tmp));

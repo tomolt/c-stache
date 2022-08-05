@@ -5,7 +5,7 @@
 #include "dh_cuts.h"
 #include "c-stache.h"
 
-static const char *templateTextSimple = "{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}!\n{{/subjects}}\n";
+static const char *templateTextSimple = "{{! this is a comment! }}{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}!\n{{/subjects}}\n";
 
 struct string_sink {
 	char  *text;
