@@ -58,6 +58,8 @@ struct c_stache_engine {
 	size_t capTemplates;
 };
 
+const char *c_stache_strerror(int status);
+
 void c_stache_start_engine   (CStacheEngine *engine, char *(*read)(const char *name, size_t *length));
 void c_stache_shutdown_engine(CStacheEngine *engine);
 

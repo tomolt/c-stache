@@ -5,6 +5,19 @@
 
 #include "c-stache.h"
 
+const char *
+c_stache_strerror(int status)
+{
+	switch (status) {
+	case C_STACHE_OK:            return "ok";
+	case C_STACHE_ERROR_OOM:     return "out of memory";
+	case C_STACHE_ERROR_NO_END:  return "tag is not closed";
+	case C_STACHE_ERROR_NO_KEY:  return "tag has no key";
+	case C_STACHE_ERROR_PAIRING: return "section start and end are mismatched";
+	default:                     return "an unknown error has occurred";
+	}
+}
+
 static void
 c_stache_free_template(CStacheTemplate *tpl)
 {
