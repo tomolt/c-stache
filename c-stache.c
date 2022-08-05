@@ -137,6 +137,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate 
 	for (i = 0; i < engine->numTemplates; i++) {
 		tpl = engine->templates[i];
 		if (!strcmp(tpl->name, name)) {
+			tpl->refcount++;
 			*template = tpl;
 			return C_STACHE_OK;
 		}
@@ -147,7 +148,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate 
 	/* TODO error handling */
 	tpl->name = strdup(name);
 	if (!tpl->name) return C_STACHE_ERROR_OOM;
-	tpl->refcount++;
+	tpl->refcount = 1;
 
 	if (engine->numTemplates == engine->capTemplates) {
 		engine->capTemplates = engine->capTemplates ? 2 * engine->capTemplates : 16;
@@ -176,6 +177,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate 
 void
 c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
 {
+	CStacheTag *tag;
 	size_t i;
 
 	if (--tpl->refcount) return;
@@ -186,7 +188,12 @@ c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
 	}
 	engine->templates[i] = engine->templates[--engine->numTemplates];
 
-	/* TODO drop other templates referenced by tags */
+	for (i = 0; i < tpl->numTags; i++) {
+		tag = &tpl->tags[i];
+		if (tag->kind == '>') {
+			c_stache_drop_template(engine, tag->otherTpl);
+		}
+	}
 
 	c_stache_free_template(tpl);
 }
