@@ -50,14 +50,15 @@ struct c_stache_engine {
 	size_t capTemplates;
 };
 
-size_t c_stache_escape_xml(const char **text, char *buf, size_t max);
-int    c_stache_parse (CStacheEngine *engine, CStacheTemplate *tpl, const char *text, size_t length);
-void   c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink);
+void c_stache_start_engine   (CStacheEngine *engine, char *(*read)(const char *name, size_t *length));
+void c_stache_shutdown_engine(CStacheEngine *engine);
+
+const CStacheTemplate *c_stache_load_template(CStacheEngine *engine, const char *name);
+void                   c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl);
+
+void c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink);
 
 char *c_stache_read_file(const char *name, size_t *length);
 
-void c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl);
-void c_stache_start_engine(CStacheEngine *engine, char *(*read)(const char *name, size_t *length));
-void c_stache_shutdown_engine(CStacheEngine *engine);
-const CStacheTemplate *c_stache_load_template(CStacheEngine *engine, const char *name);
+size_t c_stache_escape_xml(const char **text, char *buf, size_t max);
 

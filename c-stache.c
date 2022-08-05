@@ -5,32 +5,31 @@
 
 #include "c-stache.h"
 
-size_t
-c_stache_escape_xml(const char **text, char *buf, size_t max)
+static void
+c_stache_free_template(CStacheTemplate *tpl)
 {
-	const char *subst;
-	size_t len, written = 0;
-	while (written < max) {
-		switch (**text) {
-		case '<':  subst = "&lt;";   break;
-		case '>':  subst = "&gt;";   break;
-		case '\'': subst = "&#39;";  break;
-		case '&':  subst = "&amp;";  break;
-		case '"':  subst = "&quot;"; break;
-		case 0:    return written;
-		default:
-			buf[written++] = **text;
-			(*text)++;
-			continue;
-		}
+	free((char *) tpl->name);
+	free(tpl->tags);
+	free((char *) tpl->text);
+	free(tpl);
+}
 
-		len = strlen(subst);
-		if (written + len > max) break;
-		memcpy(buf + written, subst, len);
-		written += len;
-		(*text)++;
+void
+c_stache_start_engine(CStacheEngine *engine, char *(*read)(const char *name, size_t *length))
+{
+	memset(engine, 0, sizeof *engine);
+	engine->read = read;
+}
+
+void
+c_stache_shutdown_engine(CStacheEngine *engine)
+{
+	size_t i;
+
+	for (i = 0; i < engine->numTemplates; i++) {
+		c_stache_free_template(engine->templates[i]);
 	}
-	return written;
+	free(engine->templates);
 }
 
 static inline int
@@ -47,15 +46,14 @@ iskey(int c)
 	return lut[c];
 }
 
-int
+static int
 c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, size_t length)
 {
 	const char *startDelim = "{{";
 	const char *endDelim   = "}}";
 	const char *ptr = text;
-	CStacheTag *tag, *top = NULL;
+	CStacheTag *tag;
 
-	memset(tpl, 0, sizeof *tpl);
 	tpl->text   = text;
 	tpl->length = length;
 
@@ -100,6 +98,15 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, si
 		tag->tagLength = ptr - tag->pointer;
 	}
 
+	return 0;
+}
+
+static int
+c_stache_weave(CStacheEngine *engine, CStacheTemplate *tpl)
+{
+	char key[256];
+	CStacheTag *tag, *top = NULL;
+
 	for (tag = tpl->tags; tag < tpl->tags + tpl->numTags; tag++) {
 		if (tag->kind == '#' || tag->kind == '^') {
 			tag->buddy = top;
@@ -112,7 +119,6 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, si
 			top = top->buddy;
 			tag->buddy->buddy = tag;
 		} else if (tag->kind == '>') {
-			char key[256];
 			if (tag->keyLength + 1 > sizeof key)
 				return -1;
 			memcpy(key, tag->pointer + tag->keyStart, tag->keyLength);
@@ -124,6 +130,68 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, si
 		return -1;
 
 	return 0;
+}
+
+const CStacheTemplate *
+c_stache_load_template(CStacheEngine *engine, const char *name)
+{
+	size_t i;
+	CStacheTemplate *tpl;
+	const char *text;
+	size_t length;
+
+	for (i = 0; i < engine->numTemplates; i++) {
+		tpl = engine->templates[i];
+		if (!strcmp(tpl->name, name))
+			return tpl;
+	}
+
+	tpl = calloc(1, sizeof *tpl);
+	if (!tpl) return NULL;
+	/* TODO error handling */
+	tpl->name = strdup(name);
+	if (!tpl->name) return NULL;
+	tpl->refcount++;
+
+	if (engine->numTemplates == engine->capTemplates) {
+		engine->capTemplates = engine->capTemplates ? 2 * engine->capTemplates : 16;
+		engine->templates = realloc(engine->templates, engine->capTemplates * sizeof *engine->templates);
+		/* TODO proper error handling */
+		if (!engine->templates)
+			return NULL;
+	}
+	engine->templates[engine->numTemplates++] = tpl;
+	
+	/* TODO handle failure */
+	text = engine->read(name, &length);
+	if (c_stache_parse(engine, tpl, text, length) < 0) {
+		/* TODO dealloc? */
+		return NULL;
+	}
+	if (c_stache_weave(engine, tpl) < 0) {
+		/* TODO dealloc? */
+		return NULL;
+	}
+
+	return tpl;
+}
+
+void
+c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
+{
+	size_t i;
+
+	if (--tpl->refcount) return;
+
+	for (i = 0; i < engine->numTemplates; i++) {
+		if (engine->templates[i] == tpl)
+			break;
+	}
+	engine->templates[i] = engine->templates[--engine->numTemplates];
+
+	/* TODO drop other templates referenced by tags */
+
+	c_stache_free_template(tpl);
 }
 
 void
@@ -218,88 +286,31 @@ c_stache_read_file(const char *name, size_t *length)
 	return data;
 }
 
-void
-c_stache_start_engine(CStacheEngine *engine, char *(*read)(const char *name, size_t *length))
+size_t
+c_stache_escape_xml(const char **text, char *buf, size_t max)
 {
-	memset(engine, 0, sizeof *engine);
-	engine->read = read;
-}
+	const char *subst;
+	size_t len, written = 0;
+	while (written < max) {
+		switch (**text) {
+		case '<':  subst = "&lt;";   break;
+		case '>':  subst = "&gt;";   break;
+		case '\'': subst = "&#39;";  break;
+		case '&':  subst = "&amp;";  break;
+		case '"':  subst = "&quot;"; break;
+		case 0:    return written;
+		default:
+			buf[written++] = **text;
+			(*text)++;
+			continue;
+		}
 
-static void
-free_template(CStacheTemplate *tpl)
-{
-	free((char *) tpl->name);
-	free(tpl->tags);
-	free((char *) tpl->text);
-	free(tpl);
-}
-
-void
-c_stache_shutdown_engine(CStacheEngine *engine)
-{
-	size_t i;
-
-	for (i = 0; i < engine->numTemplates; i++) {
-		free_template(engine->templates[i]);
+		len = strlen(subst);
+		if (written + len > max) break;
+		memcpy(buf + written, subst, len);
+		written += len;
+		(*text)++;
 	}
-	free(engine->templates);
-}
-
-void
-c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
-{
-	size_t i;
-
-	if (--tpl->refcount) return;
-
-	for (i = 0; i < engine->numTemplates; i++) {
-		if (engine->templates[i] == tpl)
-			break;
-	}
-	engine->templates[i] = engine->templates[--engine->numTemplates];
-
-	/* TODO drop other templates referenced by tags */
-
-	free_template(tpl);
-}
-
-const CStacheTemplate *
-c_stache_load_template(CStacheEngine *engine, const char *name)
-{
-	size_t i;
-	CStacheTemplate *tpl;
-	const char *text;
-	size_t length;
-
-	for (i = 0; i < engine->numTemplates; i++) {
-		tpl = engine->templates[i];
-		if (!strcmp(tpl->name, name))
-			return tpl;
-	}
-
-	tpl = calloc(1, sizeof *tpl);
-	if (!tpl) return NULL;
-	/* TODO error handling */
-	tpl->name = strdup(name);
-	if (!tpl->name) return NULL;
-	tpl->refcount++;
-
-	if (engine->numTemplates == engine->capTemplates) {
-		engine->capTemplates = engine->capTemplates ? 2 * engine->capTemplates : 16;
-		engine->templates = realloc(engine->templates, engine->capTemplates * sizeof *engine->templates);
-		/* TODO proper error handling */
-		if (!engine->templates)
-			return NULL;
-	}
-	engine->templates[engine->numTemplates++] = tpl;
-	
-	/* TODO handle failure */
-	text = engine->read(name, &length);
-	if (c_stache_parse(engine, tpl, text, length) < 0) {
-		/* TODO dealloc? */
-		return NULL;
-	}
-
-	return tpl;
+	return written;
 }
 
