@@ -50,6 +50,8 @@ struct c_stache_template {
 
 struct c_stache_engine {
 	char *(*read)(const char *name, size_t *length);
+	const char *startDelim;
+	const char *endDelim;
 
 	CStacheTemplate **templates;
 	size_t numTemplates;

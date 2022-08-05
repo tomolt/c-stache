@@ -19,6 +19,8 @@ c_stache_start_engine(CStacheEngine *engine, char *(*read)(const char *name, siz
 {
 	memset(engine, 0, sizeof *engine);
 	engine->read = read;
+	engine->startDelim = "{{";
+	engine->endDelim   = "}}";
 }
 
 void
@@ -49,13 +51,11 @@ iskey(int c)
 static int
 c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl)
 {
-	const char *startDelim = "{{";
-	const char *endDelim   = "}}";
 	char *ptr = tpl->text;
 	char *keyEnd;
 	CStacheTag *tag;
 
-	while ((ptr = strstr(ptr, startDelim))) {
+	while ((ptr = strstr(ptr, engine->startDelim))) {
 		/* allocate new tag */
 		if (tpl->numTags == tpl->capTags) {
 			tpl->capTags = tpl->capTags ? 2 * tpl->capTags : 16;
@@ -66,14 +66,14 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl)
 		tag = &tpl->tags[tpl->numTags++];
 		
 		tag->pointer = ptr;
-		ptr += strlen(startDelim);
+		ptr += strlen(engine->startDelim);
 
 		tag->kind = 0;
 		keyEnd = NULL;
 		switch (*ptr) {
 		case '!':
 			tag->kind = *(ptr++);
-			if (!(ptr = strstr(ptr, endDelim)))
+			if (!(ptr = strstr(ptr, engine->endDelim)))
 				return C_STACHE_ERROR_NO_END;
 			break;
 
@@ -91,9 +91,9 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl)
 			while (isspace(*ptr)) ptr++;
 		}
 
-		if (strncmp(ptr, endDelim, strlen(endDelim)))
+		if (strncmp(ptr, engine->endDelim, strlen(engine->endDelim)))
 			return C_STACHE_ERROR_NO_END;
-		ptr += strlen(endDelim);
+		ptr += strlen(engine->endDelim);
 		tag->tagLength = ptr - tag->pointer;
 		if (keyEnd) *keyEnd = 0;
 	}
