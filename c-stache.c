@@ -205,10 +205,40 @@ c_stache_start_engine(CStacheEngine *engine, char *(*read)(const char *name, siz
 	engine->read = read;
 }
 
+static void
+free_template(CStacheTemplate *tpl)
+{
+	free((char *) tpl->name);
+	free(tpl->tags);
+	free((char *) tpl->text);
+	free(tpl);
+}
+
 void
 c_stache_shutdown_engine(CStacheEngine *engine)
 {
+	size_t i;
+
+	for (i = 0; i < engine->numTemplates; i++) {
+		free_template(engine->templates[i]);
+	}
 	free(engine->templates);
+}
+
+void
+c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
+{
+	size_t i;
+
+	if (--tpl->refcount) return;
+
+	for (i = 0; i < engine->numTemplates; i++) {
+		if (engine->templates[i] == tpl)
+			break;
+	}
+	engine->templates[i] = engine->templates[--engine->numTemplates];
+
+	free_template(tpl);
 }
 
 const CStacheTemplate *
@@ -220,10 +250,17 @@ c_stache_load_template(CStacheEngine *engine, const char *name)
 	size_t length;
 
 	for (i = 0; i < engine->numTemplates; i++) {
-		tpl = &engine->templates[i];
+		tpl = engine->templates[i];
 		if (!strcmp(tpl->name, name))
 			return tpl;
 	}
+
+	tpl = calloc(1, sizeof *tpl);
+	if (!tpl) return NULL;
+	/* TODO error handling */
+	tpl->name = strdup(name);
+	if (!tpl->name) return NULL;
+	tpl->refcount++;
 
 	if (engine->numTemplates == engine->capTemplates) {
 		engine->capTemplates = engine->capTemplates ? 2 * engine->capTemplates : 16;
@@ -232,8 +269,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name)
 		if (!engine->templates)
 			return NULL;
 	}
-	tpl = &engine->templates[engine->numTemplates++];
-	tpl->name = strdup(name);
+	engine->templates[engine->numTemplates++] = tpl;
 	
 	/* TODO handle failure */
 	text = engine->read(name, &length);

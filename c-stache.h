@@ -32,18 +32,19 @@ struct c_stache_tag {
 };
 
 struct c_stache_template {
-	const char *name;
-	CStacheTag *tags;
-	size_t      numTags;
-	size_t      capTags;
-	const char *text;
-	size_t      length;
+	const char  *name;
+	CStacheTag  *tags;
+	size_t       numTags;
+	size_t       capTags;
+	const char  *text;
+	size_t       length;
+	unsigned int refcount;
 };
 
 struct c_stache_engine {
 	char *(*read)(const char *name, size_t *length);
 
-	CStacheTemplate *templates;
+	CStacheTemplate **templates;
 	size_t numTemplates;
 	size_t capTemplates;
 };
@@ -54,6 +55,7 @@ void   c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheS
 
 char *c_stache_read_file(const char *name, size_t *length);
 
+void c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl);
 void c_stache_start_engine(CStacheEngine *engine, char *(*read)(const char *name, size_t *length));
 void c_stache_shutdown_engine(CStacheEngine *engine);
 const CStacheTemplate *c_stache_load_template(CStacheEngine *engine, const char *name);

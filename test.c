@@ -5,7 +5,7 @@
 #include "dh_cuts.h"
 #include "c-stache.h"
 
-static char *templateTextSimple = "{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}!\n{{/subjects}}\n";
+static const char *templateTextSimple = "{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}!\n{{/subjects}}\n";
 
 static int
 enter_cb(void *userdata, const char *section)
@@ -52,7 +52,7 @@ read_cb(const char *name, size_t *length)
 {
 	if (!strcmp(name, "simple")) {
 		*length = strlen(templateTextSimple);
-		return templateTextSimple;
+		return strdup(templateTextSimple);
 	} else {
 		return NULL;
 	}
