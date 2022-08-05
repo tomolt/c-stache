@@ -212,8 +212,8 @@ c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
 	c_stache_free_template(tpl);
 }
 
-void
-c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink)
+static void
+c_stache_render_recursive(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink, int maxDepth)
 {
 	char buf[512];
 	CStacheTag *tag = &tpl->tags[0];
@@ -250,8 +250,7 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 			break;
 
 		case '>':
-			/* TODO max recursion depth */
-			c_stache_render(tag->otherTpl, model, sink);
+			c_stache_render_recursive(tag->otherTpl, model, sink, maxDepth - 1);
 			break;
 
 		default:
@@ -270,6 +269,12 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 
 	if (cur - tpl->text < tpl->length)
 		sink->write(sink->userptr, cur, tpl->length - (cur - tpl->text));
+}
+
+void
+c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink)
+{
+	c_stache_render_recursive(tpl, model, sink, C_STACHE_MAX_PARTIAL_DEPTH);
 }
 
 char *

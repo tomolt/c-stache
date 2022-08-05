@@ -8,6 +8,8 @@
 #define C_STACHE_ERROR_NO_KEY  -4
 #define C_STACHE_ERROR_PAIRING -5
 
+#define C_STACHE_MAX_PARTIAL_DEPTH 16
+
 typedef struct c_stache_model    CStacheModel;
 typedef struct c_stache_sink     CStacheSink;
 typedef struct c_stache_tag      CStacheTag;
@@ -31,8 +33,10 @@ struct c_stache_sink {
 };
 
 struct c_stache_tag {
-	CStacheTag    *buddy;
-	CStacheTemplate *otherTpl;
+	union {
+		CStacheTag      *buddy;
+		CStacheTemplate *otherTpl;
+	};
 	const char    *pointer;
 	unsigned short keyStart;
 	unsigned short tagLength;
