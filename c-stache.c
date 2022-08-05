@@ -233,6 +233,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name)
 			return NULL;
 	}
 	tpl = &engine->templates[engine->numTemplates++];
+	tpl->name = strdup(name);
 	
 	/* TODO handle failure */
 	text = engine->read(name, &length);

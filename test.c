@@ -52,6 +52,9 @@ main()
 
 	dh_init(stderr);
 
+	CStacheEngine engine;
+	c_stache_start_engine(&engine, c_stache_read_file);
+
 	CStacheModel model = {
 		.enter = enter_cb,
 		.next  = next_cb,
@@ -72,6 +75,8 @@ main()
 		exit(1);
 	}
 	c_stache_render(&template, &model, &sink);
+
+	c_stache_shutdown_engine(&engine);
 
 	dh_summarize();
 	return 0;
