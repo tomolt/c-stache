@@ -5,6 +5,8 @@
 #include "dh_cuts.h"
 #include "c-stache.h"
 
+static char *templateTextSimple = "{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}!\n{{/subjects}}\n";
+
 static int
 enter_cb(void *userdata, const char *section)
 {
@@ -45,15 +47,24 @@ write_cb(void *userdata, const char *text, size_t length)
 	return 0;
 }
 
+static char *
+read_cb(const char *name, size_t *length)
+{
+	if (!strcmp(name, "simple")) {
+		*length = strlen(templateTextSimple);
+		return templateTextSimple;
+	} else {
+		return NULL;
+	}
+}
+
 int
 main()
 {
-	const char *text = "{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}!\n{{/subjects}}\n";
-
 	dh_init(stderr);
 
 	CStacheEngine engine;
-	c_stache_start_engine(&engine, c_stache_read_file);
+	c_stache_start_engine(&engine, read_cb);
 
 	CStacheModel model = {
 		.enter = enter_cb,
@@ -69,12 +80,13 @@ main()
 		.userdata = NULL
 	};
 
-	CStacheTemplate template;
-	if (c_stache_parse(&template, text, strlen(text))) {
-		fprintf(stderr, "c_stache_parse()\n");
+	const CStacheTemplate *template;
+	template = c_stache_load_template(&engine, "simple");
+	if (!template) {
+		fprintf(stderr, "c_stache_load_template()\n");
 		exit(1);
 	}
-	c_stache_render(&template, &model, &sink);
+	c_stache_render(template, &model, &sink);
 
 	c_stache_shutdown_engine(&engine);
 
