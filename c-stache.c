@@ -1,6 +1,7 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <stdlib.h>
 
 #include "c-stache.h"
 
@@ -162,5 +163,83 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 
 	if (cur - tpl->text < tpl->length)
 		sink->write(sink->userdata, cur, tpl->length - (cur - tpl->text));
+}
+
+void
+c_stache_start_engine(CStacheEngine *engine)
+{
+	memset(engine, 0, sizeof *engine);
+}
+
+void
+c_stache_shutdown_engine(CStacheEngine *engine)
+{
+	free(engine->templates);
+}
+
+static char *
+read_file(const char *name, size_t *length)
+{
+	FILE *file;
+	char *data;
+
+	*length = 0;
+
+	file = fopen(name, "rb");
+	if (!file) return NULL;
+
+	fseek(file, 0, SEEK_END);
+	*length = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	data = malloc(*length + 1);
+	if (!data) {
+		fclose(file);
+		return NULL;
+	}
+
+	if (fread(data, 1, *length, file) != *length) {
+		free(data);
+		fclose(file);
+		return NULL;
+	}
+	data[*length] = 0;
+
+	fclose(file);
+
+	return data;
+}
+
+const CStacheTemplate *
+c_stache_load_template(CStacheEngine *engine, const char *name)
+{
+	size_t i;
+	CStacheTemplate *tpl;
+	const char *text;
+	size_t length;
+
+	for (i = 0; i < engine->numTemplates; i++) {
+		tpl = &engine->templates[i];
+		if (!strcmp(tpl->name, name))
+			return tpl;
+	}
+
+	if (engine->numTemplates == engine->capTemplates) {
+		engine->capTemplates = engine->capTemplates ? 2 * engine->capTemplates : 16;
+		engine->templates = realloc(engine->templates, engine->capTemplates * sizeof *engine->templates);
+		/* TODO proper error handling */
+		if (!engine->templates)
+			return NULL;
+	}
+	tpl = &engine->templates[engine->numTemplates++];
+	
+	/* TODO handle failure */
+	text = read_file(name, &length);
+	if (c_stache_parse(tpl, text, length) < 0) {
+		/* TODO dealloc? */
+		return NULL;
+	}
+
+	return tpl;
 }
 

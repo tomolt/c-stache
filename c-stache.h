@@ -1,9 +1,10 @@
 #include <stddef.h>
 
-typedef struct c_stache_model     CStacheModel;
-typedef struct c_stache_sink      CStacheSink;
-typedef struct c_stache_tag       CStacheTag;
-typedef struct c_stache_template  CStacheTemplate;
+typedef struct c_stache_model    CStacheModel;
+typedef struct c_stache_sink     CStacheSink;
+typedef struct c_stache_tag      CStacheTag;
+typedef struct c_stache_template CStacheTemplate;
+typedef struct c_stache_engine   CStacheEngine;
 
 struct c_stache_model {
 	int (*enter)(void *userdata, const char *section);
@@ -31,6 +32,7 @@ struct c_stache_tag {
 };
 
 struct c_stache_template {
+	const char *name;
 	CStacheTag *tags;
 	size_t      numTags;
 	size_t      capTags;
@@ -38,7 +40,17 @@ struct c_stache_template {
 	size_t      length;
 };
 
+struct c_stache_engine {
+	CStacheTemplate *templates;
+	size_t numTemplates;
+	size_t capTemplates;
+};
+
 size_t c_stache_escape_xml(const char **text, char *buf, size_t max);
 int    c_stache_parse (CStacheTemplate *tpl, const char *text, size_t length);
 void   c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink);
+
+void c_stache_start_engine(CStacheEngine *engine);
+void c_stache_shutdown_engine(CStacheEngine *engine);
+const CStacheTemplate *c_stache_load_template(CStacheEngine *engine, const char *name);
 
