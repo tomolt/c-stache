@@ -137,7 +137,7 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 
 	while (tag < tpl->tags + tpl->numTags) {
 		if (cur < tag->pointer)
-			sink->write(sink->userdata, cur, tag->pointer - cur);
+			sink->write(sink->userptr, cur, tag->pointer - cur);
 
 		if (tag->keyLength + 1 > sizeof key)
 			return;
@@ -148,19 +148,19 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 		case '!':
 			break;
 		case '&':
-			tmp = model->subst(model->userdata, key);
-			sink->write(sink->userdata, tmp, strlen(tmp));
+			tmp = model->subst(model->userptr, key);
+			sink->write(sink->userptr, tmp, strlen(tmp));
 			break;
 		case '#':
-			if (!model->enter(model->userdata, key))
+			if (!model->enter(model->userptr, key))
 				tag = tag->buddy;
 			break;
 		case '/':
-			if (model->next(model->userdata))
+			if (model->next(model->userptr))
 				tag = tag->buddy;
 			break;
 		case '^':
-			if (!model->empty(model->userdata, key))
+			if (!model->empty(model->userptr, key))
 				tag = tag->buddy;
 			break;
 		case '>':
@@ -168,12 +168,12 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 			c_stache_render(tag->otherTpl, model, sink);
 			break;
 		default:
-			tmp = model->subst(model->userdata, key);
+			tmp = model->subst(model->userptr, key);
 			if (!tmp)
 				return;
 			while (*tmp) {
 				written = sink->escape(&tmp, key, sizeof key);
-				sink->write(sink->userdata, key, written);
+				sink->write(sink->userptr, key, written);
 			}
 		}
 		
@@ -182,7 +182,7 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 	}
 
 	if (cur - tpl->text < tpl->length)
-		sink->write(sink->userdata, cur, tpl->length - (cur - tpl->text));
+		sink->write(sink->userptr, cur, tpl->length - (cur - tpl->text));
 }
 
 char *

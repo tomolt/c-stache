@@ -13,41 +13,41 @@ struct string_sink {
 };
 
 static int
-enter_cb(void *userdata, const char *section)
+enter_cb(void *userptr, const char *section)
 {
-	(void) userdata;
+	(void) userptr;
 	printf("E %s\n", section);
 	return 1;
 }
 
 static int
-next_cb(void *userdata)
+next_cb(void *userptr)
 {
-	(void) userdata;
+	(void) userptr;
 	printf("N\n");
 	return 0;
 }
 
 static int
-empty_cb(void *userdata, const char *section)
+empty_cb(void *userptr, const char *section)
 {
-	(void) userdata;
+	(void) userptr;
 	printf("? %s\n", section);
 	return 0;
 }
 
 static const char *
-subst_cb(void *userdata, const char *key)
+subst_cb(void *userptr, const char *key)
 {
-	(void) userdata;
+	(void) userptr;
 	(void) key;
 	return "<substituted value>";
 }
 
 static int
-write_cb(void *userdata, const char *text, size_t length)
+write_cb(void *userptr, const char *text, size_t length)
 {
-	struct string_sink *str = userdata;
+	struct string_sink *str = userptr;
 	str->text = realloc(str->text, str->length + length);
 	memcpy(str->text + str->length, text, length);
 	str->length += length;
@@ -78,14 +78,14 @@ test_complete_runthrough(void)
 		.next  = next_cb,
 		.empty = empty_cb,
 		.subst = subst_cb,
-		.userdata = NULL
+		.userptr = NULL
 	};
 
 	struct string_sink str = { 0 };
 	CStacheSink sink = {
 		.escape = c_stache_escape_xml,
 		.write  = write_cb,
-		.userdata = &str
+		.userptr = &str
 	};
 
 	const CStacheTemplate *template;
