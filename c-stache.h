@@ -2,10 +2,10 @@
 
 #define C_STACHE_OK 0
 
-#define C_STACHE_ERROR_OOM     -1
-#define C_STACHE_ERROR_NO_END  -2
-#define C_STACHE_ERROR_NO_KEY  -3
-#define C_STACHE_ERROR_PAIRING -4
+#define C_STACHE_ERROR_OOM     -2
+#define C_STACHE_ERROR_NO_END  -3
+#define C_STACHE_ERROR_NO_KEY  -4
+#define C_STACHE_ERROR_PAIRING -5
 
 typedef struct c_stache_model    CStacheModel;
 typedef struct c_stache_sink     CStacheSink;
@@ -69,4 +69,6 @@ void c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSin
 char *c_stache_read_file(const char *name, size_t *length);
 
 size_t c_stache_escape_xml(const char **text, char *buf, size_t max);
+
+int c_stache_write_file(void *fileptr, const char *text, size_t length);
 

@@ -312,3 +312,9 @@ c_stache_escape_xml(const char **text, char *buf, size_t max)
 	return written;
 }
 
+int
+c_stache_write_file(void *fileptr, const char *text, size_t length)
+{
+	return fwrite(text, 1, length, fileptr) == length ? C_STACHE_OK : -1;
+}
+
