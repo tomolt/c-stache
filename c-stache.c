@@ -165,20 +165,8 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 		sink->write(sink->userdata, cur, tpl->length - (cur - tpl->text));
 }
 
-void
-c_stache_start_engine(CStacheEngine *engine)
-{
-	memset(engine, 0, sizeof *engine);
-}
-
-void
-c_stache_shutdown_engine(CStacheEngine *engine)
-{
-	free(engine->templates);
-}
-
-static char *
-read_file(const char *name, size_t *length)
+char *
+c_stache_read_file(const char *name, size_t *length)
 {
 	FILE *file;
 	char *data;
@@ -210,6 +198,19 @@ read_file(const char *name, size_t *length)
 	return data;
 }
 
+void
+c_stache_start_engine(CStacheEngine *engine, char *(*read)(const char *name, size_t *length))
+{
+	memset(engine, 0, sizeof *engine);
+	engine->read = read;
+}
+
+void
+c_stache_shutdown_engine(CStacheEngine *engine)
+{
+	free(engine->templates);
+}
+
 const CStacheTemplate *
 c_stache_load_template(CStacheEngine *engine, const char *name)
 {
@@ -234,7 +235,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name)
 	tpl = &engine->templates[engine->numTemplates++];
 	
 	/* TODO handle failure */
-	text = read_file(name, &length);
+	text = engine->read(name, &length);
 	if (c_stache_parse(tpl, text, length) < 0) {
 		/* TODO dealloc? */
 		return NULL;
