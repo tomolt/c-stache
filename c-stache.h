@@ -24,6 +24,7 @@ struct c_stache_sink {
 
 struct c_stache_tag {
 	CStacheTag    *buddy;
+	const CStacheTemplate *otherTpl;
 	const char    *pointer;
 	unsigned short keyStart;
 	unsigned short keyLength;
@@ -50,7 +51,7 @@ struct c_stache_engine {
 };
 
 size_t c_stache_escape_xml(const char **text, char *buf, size_t max);
-int    c_stache_parse (CStacheTemplate *tpl, const char *text, size_t length);
+int    c_stache_parse (CStacheEngine *engine, CStacheTemplate *tpl, const char *text, size_t length);
 void   c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink);
 
 char *c_stache_read_file(const char *name, size_t *length);

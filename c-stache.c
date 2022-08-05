@@ -48,7 +48,7 @@ iskey(int c)
 }
 
 int
-c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
+c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, size_t length)
 {
 	const char *startDelim = "{{";
 	const char *endDelim   = "}}";
@@ -72,7 +72,7 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 		/* tag start */
 		tag->pointer = ptr;
 		ptr += strlen(startDelim);
-		if (strchr("&#/^", *ptr))
+		if (strchr("&#/^>", *ptr))
 			tag->kind = *(ptr++);
 		else
 			tag->kind = 0;
@@ -104,6 +104,13 @@ c_stache_parse(CStacheTemplate *tpl, const char *text, size_t length)
 			tag->buddy = top;
 			top = top->buddy;
 			tag->buddy->buddy = tag;
+		} else if (tag->kind == '>') {
+			char key[256];
+			if (tag->keyLength + 1 > sizeof key)
+				return -1;
+			memcpy(key, tag->pointer + tag->keyStart, tag->keyLength);
+			key[tag->keyLength] = 0;
+			tag->otherTpl = c_stache_load_template(engine, key);
 		}
 	}
 	if (top)
@@ -146,6 +153,10 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 		case '^':
 			if (!model->empty(model->userdata, key))
 				tag = tag->buddy;
+			break;
+		case '>':
+			/* TODO max recursion depth */
+			c_stache_render(tag->otherTpl, model, sink);
 			break;
 		default:
 			tmp = model->subst(model->userdata, key);
@@ -238,6 +249,8 @@ c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
 	}
 	engine->templates[i] = engine->templates[--engine->numTemplates];
 
+	/* TODO drop other templates referenced by tags */
+
 	free_template(tpl);
 }
 
@@ -273,7 +286,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name)
 	
 	/* TODO handle failure */
 	text = engine->read(name, &length);
-	if (c_stache_parse(tpl, text, length) < 0) {
+	if (c_stache_parse(engine, tpl, text, length) < 0) {
 		/* TODO dealloc? */
 		return NULL;
 	}
