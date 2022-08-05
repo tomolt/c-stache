@@ -7,9 +7,9 @@ typedef struct c_stache_template CStacheTemplate;
 typedef struct c_stache_engine   CStacheEngine;
 
 struct c_stache_model {
-	int (*enter)(void *userptr, const char *section);
-	int (*next )(void *userptr);
-	int (*empty)(void *userptr, const char *section);
+	int         (*enter)(void *userptr, const char *section);
+	int         (*next )(void *userptr);
+	int         (*empty)(void *userptr, const char *section);
 	const char *(*subst)(void *userptr, const char *key);
 
 	void *userptr;
@@ -17,7 +17,7 @@ struct c_stache_model {
 
 struct c_stache_sink {
 	size_t (*escape)(const char **text, char *buf, size_t max);
-	int (*write)(void *userptr, const char *text, size_t length);
+	int    (*write )(void *userptr, const char *text, size_t length);
 
 	void *userptr;
 };
