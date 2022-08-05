@@ -52,6 +52,7 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, char *text, size_t l
 	const char *startDelim = "{{";
 	const char *endDelim   = "}}";
 	char *ptr = text;
+	char *keyEnd;
 	CStacheTag *tag;
 
 	tpl->text   = text;
@@ -63,7 +64,7 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, char *text, size_t l
 			tpl->capTags = tpl->capTags ? 2 * tpl->capTags : 16;
 			tpl->tags = realloc(tpl->tags, tpl->capTags * sizeof *tpl->tags);
 			if (!tpl->tags)
-				return -1;
+				return C_STACHE_ERROR_OOM;
 		}
 		tag = &tpl->tags[tpl->numTags++];
 		
@@ -71,11 +72,12 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, char *text, size_t l
 		ptr += strlen(startDelim);
 
 		tag->kind = 0;
+		keyEnd = NULL;
 		switch (*ptr) {
 		case '!':
 			tag->kind = *(ptr++);
 			if (!(ptr = strstr(ptr, endDelim)))
-				return -1;
+				return C_STACHE_ERROR_NO_END;
 			break;
 
 		case '&': case '#': case '/': case '^': case '>':
@@ -87,18 +89,19 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, char *text, size_t l
 			tag->keyStart = ptr - tag->pointer;
 			while (iskey(*ptr)) ptr++;
 			if (ptr == tag->pointer + tag->keyStart)
-				return -1;
-			*ptr++ = 0;
+				return C_STACHE_ERROR_NO_KEY;
+			keyEnd = ptr;
 			while (isspace(*ptr)) ptr++;
 		}
 
 		if (strncmp(ptr, endDelim, strlen(endDelim)))
-			return -1;
+			return C_STACHE_ERROR_NO_END;
 		ptr += strlen(endDelim);
 		tag->tagLength = ptr - tag->pointer;
+		if (keyEnd) *keyEnd = 0;
 	}
 
-	return 0;
+	return C_STACHE_OK;
 }
 
 static int
@@ -112,7 +115,7 @@ c_stache_weave(CStacheEngine *engine, CStacheTemplate *tpl)
 			top = tag;
 		} else if (tag->kind == '/') {
 			if (!top || strcmp(tag->pointer + tag->keyStart, top->pointer + top->keyStart))
-				return -1;
+				return C_STACHE_ERROR_PAIRING;
 			tag->buddy = top;
 			top = top->buddy;
 			tag->buddy->buddy = tag;
@@ -120,10 +123,8 @@ c_stache_weave(CStacheEngine *engine, CStacheTemplate *tpl)
 			tag->otherTpl = c_stache_load_template(engine, tag->pointer + tag->keyStart);
 		}
 	}
-	if (top)
-		return -1;
 
-	return 0;
+	return top ? C_STACHE_ERROR_PAIRING : C_STACHE_OK;
 }
 
 const CStacheTemplate *
@@ -158,11 +159,14 @@ c_stache_load_template(CStacheEngine *engine, const char *name)
 	
 	/* TODO handle failure */
 	text = engine->read(name, &length);
-	if (c_stache_parse(engine, tpl, text, length) < 0) {
+	int s;
+	if ((s = c_stache_parse(engine, tpl, text, length)) < 0) {
+		printf("c_stache_parse(): %d\n", s);
 		/* TODO dealloc? */
 		return NULL;
 	}
-	if (c_stache_weave(engine, tpl) < 0) {
+	if ((s = c_stache_weave(engine, tpl)) < 0) {
+		printf("c_stache_weave(): %d\n", s);
 		/* TODO dealloc? */
 		return NULL;
 	}

@@ -1,5 +1,12 @@
 #include <stddef.h>
 
+#define C_STACHE_OK 0
+
+#define C_STACHE_ERROR_OOM     -1
+#define C_STACHE_ERROR_NO_END  -2
+#define C_STACHE_ERROR_NO_KEY  -3
+#define C_STACHE_ERROR_PAIRING -4
+
 typedef struct c_stache_model    CStacheModel;
 typedef struct c_stache_sink     CStacheSink;
 typedef struct c_stache_tag      CStacheTag;
