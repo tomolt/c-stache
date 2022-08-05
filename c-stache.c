@@ -69,24 +69,25 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, si
 		}
 		tag = &tpl->tags[tpl->numTags++];
 		
-		/* tag start */
 		tag->pointer = ptr;
 		ptr += strlen(startDelim);
-		if (strchr("&#/^>", *ptr))
+
+		tag->kind = 0;
+		switch (*ptr) {
+		case '&': case '#': case '/': case '^': case '>':
 			tag->kind = *(ptr++);
-		else
-			tag->kind = 0;
-		while (isspace(*ptr)) ptr++;
+			/* fallthrough */
 
-		/* key */
-		tag->keyStart = ptr - tag->pointer;
-		while (iskey(*ptr)) ptr++;
-		tag->keyLength = ptr - (tag->pointer + tag->keyStart);
-		if (!tag->keyLength)
-			return -1;
+		default:
+			while (isspace(*ptr)) ptr++;
+			tag->keyStart = ptr - tag->pointer;
+			while (iskey(*ptr)) ptr++;
+			tag->keyLength = ptr - (tag->pointer + tag->keyStart);
+			if (!tag->keyLength)
+				return -1;
+			while (isspace(*ptr)) ptr++;
+		}
 
-		/* tag end */
-		while (isspace(*ptr)) ptr++;
 		if (strncmp(ptr, endDelim, strlen(endDelim)))
 			return -1;
 		ptr += strlen(endDelim);
