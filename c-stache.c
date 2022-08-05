@@ -11,6 +11,7 @@ c_stache_strerror(int status)
 	switch (status) {
 	case C_STACHE_OK:            return "ok";
 	case C_STACHE_ERROR_OOM:     return "out of memory";
+	case C_STACHE_ERROR_IO:      return "I/O error";
 	case C_STACHE_ERROR_NO_END:  return "tag is not closed";
 	case C_STACHE_ERROR_NO_KEY:  return "tag has no key";
 	case C_STACHE_ERROR_PAIRING: return "section start and end are mismatched";
@@ -335,6 +336,6 @@ c_stache_escape_xml(const char **text, char *buf, size_t max)
 int
 c_stache_write_file(void *fileptr, const char *text, size_t length)
 {
-	return fwrite(text, 1, length, fileptr) == length ? C_STACHE_OK : -1;
+	return fwrite(text, 1, length, fileptr) == length ? C_STACHE_OK : C_STACHE_ERROR_IO;
 }
 

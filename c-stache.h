@@ -2,7 +2,8 @@
 
 #define C_STACHE_OK 0
 
-#define C_STACHE_ERROR_OOM     -2
+#define C_STACHE_ERROR_OOM     -1
+#define C_STACHE_ERROR_IO      -2
 #define C_STACHE_ERROR_NO_END  -3
 #define C_STACHE_ERROR_NO_KEY  -4
 #define C_STACHE_ERROR_PAIRING -5
