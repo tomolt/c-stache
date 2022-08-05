@@ -7,6 +7,7 @@
 #define C_STACHE_ERROR_NO_END  -3
 #define C_STACHE_ERROR_NO_KEY  -4
 #define C_STACHE_ERROR_PAIRING -5
+#define C_STACHE_ERROR_BAD_TPL -6
 
 #define C_STACHE_MAX_PARTIAL_DEPTH 16
 
@@ -44,13 +45,14 @@ struct c_stache_tag {
 };
 
 struct c_stache_template {
-	char        *name;
-	CStacheTag  *tags;
-	size_t       numTags;
-	size_t       capTags;
-	char        *text;
-	size_t       length;
-	unsigned int refcount;
+	char         *name;
+	CStacheTag   *tags;
+	size_t        numTags;
+	size_t        capTags;
+	char         *text;
+	size_t        length;
+	unsigned int  refcount;
+	unsigned char usable;
 };
 
 struct c_stache_engine {
@@ -71,7 +73,7 @@ void c_stache_shutdown_engine(CStacheEngine *engine);
 int  c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate **template);
 void c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl);
 
-void c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink);
+int  c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink);
 
 char *c_stache_read_file(const char *name, size_t *length);
 

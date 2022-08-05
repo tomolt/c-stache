@@ -95,7 +95,8 @@ test_complete_runthrough(void)
 	dh_assert(s == C_STACHE_OK);
 	dh_assert(template != NULL);
 
-	c_stache_render(template, &model, &sink);
+	s = c_stache_render(template, &model, &sink);
+	dh_assert(s == C_STACHE_OK);
 
 	printf("OUTPUT:\n---\n%.*s\n---\n", (int) str.length, str.text);
 	free(str.text);

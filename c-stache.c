@@ -15,6 +15,7 @@ c_stache_strerror(int status)
 	case C_STACHE_ERROR_NO_END:  return "tag is not closed";
 	case C_STACHE_ERROR_NO_KEY:  return "tag has no key";
 	case C_STACHE_ERROR_PAIRING: return "section start and end are mismatched";
+	case C_STACHE_ERROR_BAD_TPL: return "attempting to use template that was not loaded successfully";
 	default:                     return "an unknown error has occurred";
 	}
 }
@@ -22,6 +23,7 @@ c_stache_strerror(int status)
 static void
 c_stache_free_template(CStacheTemplate *tpl)
 {
+	if (!tpl) return;
 	free(tpl->name);
 	free(tpl->tags);
 	free(tpl->text);
@@ -68,14 +70,16 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl)
 	char *ptr = tpl->text;
 	char *keyEnd;
 	CStacheTag *tag;
+	void *mem;
 
 	while ((ptr = strstr(ptr, engine->startDelim))) {
 		/* allocate new tag */
 		if (tpl->numTags == tpl->capTags) {
 			tpl->capTags = tpl->capTags ? 2 * tpl->capTags : 16;
-			tpl->tags = realloc(tpl->tags, tpl->capTags * sizeof *tpl->tags);
-			if (!tpl->tags)
+			mem = realloc(tpl->tags, tpl->capTags * sizeof *tpl->tags);
+			if (!mem)
 				return C_STACHE_ERROR_OOM;
+			tpl->tags = mem;
 		}
 		tag = &tpl->tags[tpl->numTags++];
 		
@@ -146,6 +150,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate 
 {
 	size_t i;
 	CStacheTemplate *tpl;
+	void *mem;
 	int s;
 
 	for (i = 0; i < engine->numTemplates; i++) {
@@ -157,33 +162,36 @@ c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate 
 		}
 	}
 
-	tpl = calloc(1, sizeof *tpl);
-	if (!tpl) return C_STACHE_ERROR_OOM;
-	/* TODO error handling */
-	tpl->name = strdup(name);
-	if (!tpl->name) return C_STACHE_ERROR_OOM;
-	tpl->refcount = 1;
+	*template = NULL;
 
 	if (engine->numTemplates == engine->capTemplates) {
 		engine->capTemplates = engine->capTemplates ? 2 * engine->capTemplates : 16;
-		engine->templates = realloc(engine->templates, engine->capTemplates * sizeof *engine->templates);
-		/* TODO proper error handling */
-		if (!engine->templates)
+		mem = realloc(engine->templates, engine->capTemplates * sizeof *engine->templates);
+		if (!mem)
 			return C_STACHE_ERROR_OOM;
-	}
-	engine->templates[engine->numTemplates++] = tpl;
-	
-	/* TODO handle failure */
-	tpl->text = engine->read(name, &tpl->length);
-	if ((s = c_stache_parse(engine, tpl)) < 0) {
-		/* TODO dealloc? */
-		return s;
-	}
-	if ((s = c_stache_weave(engine, tpl)) < 0) {
-		/* TODO dealloc? */
-		return s;
+		engine->templates = mem;
 	}
 
+	tpl = calloc(1, sizeof *tpl);
+	if (!tpl)
+		return C_STACHE_ERROR_OOM;
+	tpl->name = strdup(name);
+	if (!tpl->name) {
+		free(tpl);
+		return C_STACHE_ERROR_OOM;
+	}
+	tpl->refcount = 1;
+	engine->templates[engine->numTemplates++] = tpl;
+	
+	tpl->text = engine->read(name, &tpl->length);
+	if (!tpl->text)
+		return C_STACHE_ERROR_IO;
+	if ((s = c_stache_parse(engine, tpl)) < 0)
+		return s;
+	if ((s = c_stache_weave(engine, tpl)) < 0)
+		return s;
+
+	tpl->usable = 1;
 	*template = tpl;
 	return C_STACHE_OK;
 }
@@ -194,7 +202,7 @@ c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
 	CStacheTag *tag;
 	size_t i;
 
-	if (--tpl->refcount) return;
+	if (!tpl || --tpl->refcount) return;
 
 	for (i = 0; i < engine->numTemplates; i++) {
 		if (engine->templates[i] == tpl)
@@ -204,15 +212,14 @@ c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
 
 	for (i = 0; i < tpl->numTags; i++) {
 		tag = &tpl->tags[i];
-		if (tag->kind == '>') {
+		if (tag->kind == '>')
 			c_stache_drop_template(engine, tag->otherTpl);
-		}
 	}
 
 	c_stache_free_template(tpl);
 }
 
-static void
+static int
 c_stache_render_recursive(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink, int maxDepth)
 {
 	char buf[512];
@@ -220,6 +227,9 @@ c_stache_render_recursive(const CStacheTemplate *tpl, CStacheModel *model, CStac
 	const char *cur = tpl->text;
 	const char *tmp;
 	size_t written;
+
+	if (!tpl->usable)
+		return C_STACHE_ERROR_BAD_TPL;
 
 	while (tag < tpl->tags + tpl->numTags) {
 		if (cur < tag->pointer)
@@ -256,7 +266,7 @@ c_stache_render_recursive(const CStacheTemplate *tpl, CStacheModel *model, CStac
 		default:
 			tmp = model->subst(model->userptr, tag->pointer + tag->keyStart);
 			if (!tmp)
-				return;
+				return -1; /* FIXME propagate proper error code! */
 			while (*tmp) {
 				written = sink->escape(&tmp, buf, sizeof buf);
 				sink->write(sink->userptr, buf, written);
@@ -269,12 +279,14 @@ c_stache_render_recursive(const CStacheTemplate *tpl, CStacheModel *model, CStac
 
 	if (cur - tpl->text < tpl->length)
 		sink->write(sink->userptr, cur, tpl->length - (cur - tpl->text));
+
+	return C_STACHE_OK;
 }
 
-void
+int
 c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink)
 {
-	c_stache_render_recursive(tpl, model, sink, C_STACHE_MAX_PARTIAL_DEPTH);
+	return c_stache_render_recursive(tpl, model, sink, C_STACHE_MAX_PARTIAL_DEPTH);
 }
 
 char *
