@@ -27,17 +27,16 @@ struct c_stache_tag {
 	const CStacheTemplate *otherTpl;
 	const char    *pointer;
 	unsigned short keyStart;
-	unsigned short keyLength;
 	unsigned short tagLength;
 	char           kind;
 };
 
 struct c_stache_template {
-	const char  *name;
+	char        *name;
 	CStacheTag  *tags;
 	size_t       numTags;
 	size_t       capTags;
-	const char  *text;
+	char        *text;
 	size_t       length;
 	unsigned int refcount;
 };

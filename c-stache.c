@@ -8,9 +8,9 @@
 static void
 c_stache_free_template(CStacheTemplate *tpl)
 {
-	free((char *) tpl->name);
+	free(tpl->name);
 	free(tpl->tags);
-	free((char *) tpl->text);
+	free(tpl->text);
 	free(tpl);
 }
 
@@ -47,11 +47,11 @@ iskey(int c)
 }
 
 static int
-c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, size_t length)
+c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, char *text, size_t length)
 {
 	const char *startDelim = "{{";
 	const char *endDelim   = "}}";
-	const char *ptr = text;
+	char *ptr = text;
 	CStacheTag *tag;
 
 	tpl->text   = text;
@@ -86,9 +86,9 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, si
 			while (isspace(*ptr)) ptr++;
 			tag->keyStart = ptr - tag->pointer;
 			while (iskey(*ptr)) ptr++;
-			tag->keyLength = ptr - (tag->pointer + tag->keyStart);
-			if (!tag->keyLength)
+			if (ptr == tag->pointer + tag->keyStart)
 				return -1;
+			*ptr++ = 0;
 			while (isspace(*ptr)) ptr++;
 		}
 
@@ -104,7 +104,6 @@ c_stache_parse(CStacheEngine *engine, CStacheTemplate *tpl, const char *text, si
 static int
 c_stache_weave(CStacheEngine *engine, CStacheTemplate *tpl)
 {
-	char key[256];
 	CStacheTag *tag, *top = NULL;
 
 	for (tag = tpl->tags; tag < tpl->tags + tpl->numTags; tag++) {
@@ -112,18 +111,13 @@ c_stache_weave(CStacheEngine *engine, CStacheTemplate *tpl)
 			tag->buddy = top;
 			top = tag;
 		} else if (tag->kind == '/') {
-			if (!top || tag->keyLength != top->keyLength
-			  || memcmp(tag->pointer + tag->keyStart, top->pointer + top->keyStart, tag->keyLength))
+			if (!top || strcmp(tag->pointer + tag->keyStart, top->pointer + top->keyStart))
 				return -1;
 			tag->buddy = top;
 			top = top->buddy;
 			tag->buddy->buddy = tag;
 		} else if (tag->kind == '>') {
-			if (tag->keyLength + 1 > sizeof key)
-				return -1;
-			memcpy(key, tag->pointer + tag->keyStart, tag->keyLength);
-			key[tag->keyLength] = 0;
-			tag->otherTpl = c_stache_load_template(engine, key);
+			tag->otherTpl = c_stache_load_template(engine, tag->pointer + tag->keyStart);
 		}
 	}
 	if (top)
@@ -137,7 +131,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name)
 {
 	size_t i;
 	CStacheTemplate *tpl;
-	const char *text;
+	char *text;
 	size_t length;
 
 	for (i = 0; i < engine->numTemplates; i++) {
@@ -197,7 +191,7 @@ c_stache_drop_template(CStacheEngine *engine, CStacheTemplate *tpl)
 void
 c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *sink)
 {
-	char key[256];
+	char buf[512];
 	CStacheTag *tag = &tpl->tags[0];
 	const char *cur = tpl->text;
 	const char *tmp;
@@ -207,20 +201,15 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 		if (cur < tag->pointer)
 			sink->write(sink->userptr, cur, tag->pointer - cur);
 
-		if (tag->keyLength + 1 > sizeof key)
-			return;
-		memcpy(key, tag->pointer + tag->keyStart, tag->keyLength);
-		key[tag->keyLength] = 0;
-
 		switch (tag->kind) {
 		case '!':
 			break;
 		case '&':
-			tmp = model->subst(model->userptr, key);
+			tmp = model->subst(model->userptr, tag->pointer + tag->keyStart);
 			sink->write(sink->userptr, tmp, strlen(tmp));
 			break;
 		case '#':
-			if (!model->enter(model->userptr, key))
+			if (!model->enter(model->userptr, tag->pointer + tag->keyStart))
 				tag = tag->buddy;
 			break;
 		case '/':
@@ -228,7 +217,7 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 				tag = tag->buddy;
 			break;
 		case '^':
-			if (!model->empty(model->userptr, key))
+			if (!model->empty(model->userptr, tag->pointer + tag->keyStart))
 				tag = tag->buddy;
 			break;
 		case '>':
@@ -236,12 +225,12 @@ c_stache_render(const CStacheTemplate *tpl, CStacheModel *model, CStacheSink *si
 			c_stache_render(tag->otherTpl, model, sink);
 			break;
 		default:
-			tmp = model->subst(model->userptr, key);
+			tmp = model->subst(model->userptr, tag->pointer + tag->keyStart);
 			if (!tmp)
 				return;
 			while (*tmp) {
-				written = sink->escape(&tmp, key, sizeof key);
-				sink->write(sink->userptr, key, written);
+				written = sink->escape(&tmp, buf, sizeof buf);
+				sink->write(sink->userptr, buf, written);
 			}
 		}
 		
