@@ -7,6 +7,11 @@
 
 static const char *templateTextSimple = "{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}!\n{{/subjects}}\n";
 
+struct string_sink {
+	char  *text;
+	size_t length;
+};
+
 static int
 enter_cb(void *userdata, const char *section)
 {
@@ -42,8 +47,10 @@ subst_cb(void *userdata, const char *key)
 static int
 write_cb(void *userdata, const char *text, size_t length)
 {
-	(void) userdata;
-	printf(".%.*s\n", (int) length, text);
+	struct string_sink *str = userdata;
+	str->text = realloc(str->text, str->length + length);
+	memcpy(str->text + str->length, text, length);
+	str->length += length;
 	return 0;
 }
 
@@ -74,10 +81,11 @@ test_complete_runthrough(void)
 		.userdata = NULL
 	};
 
+	struct string_sink str = { 0 };
 	CStacheSink sink = {
 		.escape = c_stache_escape_xml,
 		.write  = write_cb,
-		.userdata = NULL
+		.userdata = &str
 	};
 
 	const CStacheTemplate *template;
@@ -85,6 +93,9 @@ test_complete_runthrough(void)
 	dh_assert(template != NULL);
 
 	c_stache_render(template, &model, &sink);
+
+	printf("OUTPUT:\n---\n%.*s\n---\n", (int) str.length, str.text);
+	free(str.text);
 
 	c_stache_shutdown_engine(&engine);
 
