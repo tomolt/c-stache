@@ -173,6 +173,7 @@ c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate 
 	}
 
 	tpl = calloc(1, sizeof *tpl);
+	*template = tpl;
 	if (!tpl)
 		return C_STACHE_ERROR_OOM;
 	tpl->name = strdup(name);
@@ -192,7 +193,6 @@ c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate 
 		return s;
 
 	tpl->usable = 1;
-	*template = tpl;
 	return C_STACHE_OK;
 }
 
@@ -227,6 +227,7 @@ c_stache_render_recursive(const CStacheTemplate *tpl, CStacheModel *model, CStac
 	const char *cur = tpl->text;
 	const char *tmp;
 	size_t written;
+	int s;
 
 	if (!tpl->usable)
 		return C_STACHE_ERROR_BAD_TPL;
@@ -260,7 +261,9 @@ c_stache_render_recursive(const CStacheTemplate *tpl, CStacheModel *model, CStac
 			break;
 
 		case '>':
-			c_stache_render_recursive(tag->otherTpl, model, sink, maxDepth - 1);
+			s = c_stache_render_recursive(tag->otherTpl, model, sink, maxDepth - 1);
+			if (s < 0)
+				return s;
 			break;
 
 		default:

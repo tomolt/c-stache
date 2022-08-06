@@ -11,8 +11,8 @@ MANPREFIX = $(PREFIX)/share/man
 
 # compiler flags for c-stache
 CPPFLAGS =
-CFLAGS   = -Os -Wall
-LDFLAGS  = -Os
+CFLAGS   = -g -Wall
+LDFLAGS  = -g
 ARFLAGS  = rcs
 
 # compiler flags for the test application
