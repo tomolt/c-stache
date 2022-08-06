@@ -32,7 +32,7 @@ libc-stache.a: $(C_STACHE_OBJ)
 	$(AR) $(ARFLAGS) $@ $(C_STACHE_OBJ)
 
 test: test.o libc-stache.a
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) $(TEST_LDFLAGS) -o $@ $^
 
 c-stache.o: c-stache.c c-stache.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
