@@ -17,6 +17,6 @@ ARFLAGS  = rcs
 
 # compiler flags for the test application
 TEST_CPPFLAGS =
-TEST_CFLAGS   = -g -Os -Wall
-TEST_LDFLAGS  = -g -Os
+TEST_CFLAGS   = -g -Wall
+TEST_LDFLAGS  = -g
 
