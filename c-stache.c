@@ -246,18 +246,27 @@ c_stache_render_recursive(const CStacheTemplate *tpl, CStacheModel *model, CStac
 			break;
 
 		case '#':
-			if (!model->enter(model->userptr, tag->pointer + tag->keyStart))
+			if (model->enter(model->userptr, tag->pointer + tag->keyStart)) {
+				if (!model->next(model->userptr))
+					model->leave(model->userptr);
+			} else {
 				tag = tag->buddy;
+			}
 			break;
 
 		case '/':
 			if (model->next(model->userptr))
 				tag = tag->buddy;
+			else
+				model->leave(model->userptr);
 			break;
 
 		case '^':
-			if (!model->empty(model->userptr, tag->pointer + tag->keyStart))
-				tag = tag->buddy;
+			if (model->enter(model->userptr, tag->pointer + tag->keyStart)) {
+				if (model->next(model->userptr))
+					tag = tag->buddy;
+				model->leave(model->userptr);
+			}
 			break;
 
 		case '>':

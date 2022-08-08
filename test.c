@@ -5,7 +5,7 @@
 #include "dh_cuts.h"
 #include "c-stache.h"
 
-static const char *templateTextInner = "leader {{ foo }} trailer";
+static const char *templateTextInner = "^{{item}}$\n";
 static const char *templateTextOuter = "{{! this is a comment! }}header\n{{# the-section}}{{> inner}}{{/ the-section}}";
 static const char *templateTextNoEnd = "{{ key ";
 static const char *templateTextBadPartial = "{{> noend}}";
@@ -18,30 +18,44 @@ struct string_sink {
 static int
 enter_cb(void *userptr, const char *section)
 {
-	(void) userptr;
-	return !strcmp(section, "the-section") ? 1 : 0;
+	int *n = userptr;
+	if (*n < 0 && !strcmp(section, "the-section")) {
+		*n = 0;
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 static int
 next_cb(void *userptr)
 {
-	(void) userptr;
-	return 0;
+	int *n = userptr;
+	if (*n >= 0 && *n < 3) {
+		++*n;
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
-static int
-empty_cb(void *userptr, const char *section)
+static void
+leave_cb(void *userptr)
 {
-	(void) userptr;
-	return !strcmp(section, "the-section") ? 0 : 1;
+	*(int *) userptr = -1;
 }
 
 static const char *
 subst_cb(void *userptr, const char *key)
 {
-	(void) userptr;
-	if (!strcmp(key, "foo")) return "bar";
-	return NULL;
+	static char buf[50];
+	int *n = userptr;
+	if (*n >= 0 && !strcmp(key, "item")) {
+		sprintf(buf, "Item #%d", *n);
+		return buf;
+	} else {
+		return NULL;
+	}
 }
 
 static int
@@ -70,17 +84,20 @@ read_cb(const char *name, size_t *length)
 static void
 test_complete_runthrough(void)
 {
+	const char *expectedResult = "header\n^Item #1$\n^Item #2$\n^Item #3$\n";
+
 	dh_push("complete run-through");
 
 	CStacheEngine engine;
 	c_stache_start_engine(&engine, read_cb);
 
+	int num = -1;
 	CStacheModel model = {
 		.enter   = enter_cb,
 		.next    = next_cb,
-		.empty   = empty_cb,
+		.leave   = leave_cb,
 		.subst   = subst_cb,
-		.userptr = NULL
+		.userptr = &num
 	};
 
 	struct string_sink str = { 0 };
@@ -95,7 +112,7 @@ test_complete_runthrough(void)
 	dh_assert(template != NULL);
 
 	dh_assertiq(c_stache_render(template, &model, &sink), C_STACHE_OK);
-	dh_assert(!strncmp("header\nleader bar trailer", str.text, str.length));
+	dh_assert(str.length == strlen(expectedResult) && !memcmp(expectedResult, str.text, str.length));
 
 	free(str.text);
 
@@ -112,12 +129,13 @@ test_failure_handling(void)
 	CStacheEngine engine;
 	c_stache_start_engine(&engine, read_cb);
 
+	int num = -1;
 	CStacheModel model = {
 		.enter   = enter_cb,
 		.next    = next_cb,
-		.empty   = empty_cb,
+		.leave   = leave_cb,
 		.subst   = subst_cb,
-		.userptr = NULL
+		.userptr = &num
 	};
 
 	struct string_sink str = { 0 };

@@ -20,7 +20,7 @@ typedef struct c_stache_engine   CStacheEngine;
 struct c_stache_model {
 	int         (*enter)(void *userptr, const char *section);
 	int         (*next )(void *userptr);
-	int         (*empty)(void *userptr, const char *section);
+	void        (*leave)(void *userptr);
 	const char *(*subst)(void *userptr, const char *key);
 
 	void *userptr;
