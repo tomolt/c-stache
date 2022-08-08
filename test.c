@@ -5,8 +5,8 @@
 #include "dh_cuts.h"
 #include "c-stache.h"
 
-static const char *templateTextInner = "{{! this is a comment! }}{{#subjects}}Unbelievable! You, {{ subjectNameHere }}, must be the pride of {{ subjectHometownHere }}!\n{{/subjects}}\n";
-static const char *templateTextOuter = "{{# foo}}{{> inner}}{{/ foo}}";
+static const char *templateTextInner = "leader {{ foo }} trailer";
+static const char *templateTextOuter = "{{! this is a comment! }}header\n{{# the-section}}{{> inner}}{{/ the-section}}";
 static const char *templateTextNoEnd = "{{ key ";
 static const char *templateTextBadPartial = "{{> noend}}";
 
@@ -19,15 +19,13 @@ static int
 enter_cb(void *userptr, const char *section)
 {
 	(void) userptr;
-	printf("E %s\n", section);
-	return 1;
+	return !strcmp(section, "the-section") ? 1 : 0;
 }
 
 static int
 next_cb(void *userptr)
 {
 	(void) userptr;
-	printf("N\n");
 	return 0;
 }
 
@@ -35,16 +33,15 @@ static int
 empty_cb(void *userptr, const char *section)
 {
 	(void) userptr;
-	printf("? %s\n", section);
-	return 0;
+	return !strcmp(section, "the-section") ? 0 : 1;
 }
 
 static const char *
 subst_cb(void *userptr, const char *key)
 {
 	(void) userptr;
-	(void) key;
-	return "<substituted value>";
+	if (!strcmp(key, "foo")) return "bar";
+	return NULL;
 }
 
 static int
@@ -60,21 +57,14 @@ write_cb(void *userptr, const char *text, size_t length)
 static char *
 read_cb(const char *name, size_t *length)
 {
-	if (!strcmp(name, "inner")) {
-		*length = strlen(templateTextInner);
-		return strdup(templateTextInner);
-	} else if (!strcmp(name, "outer")) {
-		*length = strlen(templateTextOuter);
-		return strdup(templateTextOuter);
-	} else if (!strcmp(name, "noend")) {
-		*length = strlen(templateTextNoEnd);
-		return strdup(templateTextNoEnd);
-	} else if (!strcmp(name, "badpartial")) {
-		*length = strlen(templateTextBadPartial);
-		return strdup(templateTextBadPartial);
-	} else {
-		return NULL;
-	}
+	const char *pointer;
+	if      (!strcmp(name, "inner"))      pointer = templateTextInner;
+	else if (!strcmp(name, "outer"))      pointer = templateTextOuter;
+	else if (!strcmp(name, "noend"))      pointer = templateTextNoEnd;
+	else if (!strcmp(name, "badpartial")) pointer = templateTextBadPartial;
+	else return NULL;
+	*length = strlen(pointer);
+	return strdup(pointer);
 }
 
 static void
@@ -105,8 +95,8 @@ test_complete_runthrough(void)
 	dh_assert(template != NULL);
 
 	dh_assertiq(c_stache_render(template, &model, &sink), C_STACHE_OK);
+	dh_assert(!strncmp("header\nleader bar trailer", str.text, str.length));
 
-	printf("OUTPUT:\n---\n%.*s\n---\n", (int) str.length, str.text);
 	free(str.text);
 
 	c_stache_shutdown_engine(&engine);
