@@ -123,7 +123,6 @@ static int
 c_stache_weave(CStacheEngine *engine, CStacheTemplate *tpl)
 {
 	CStacheTag *tag, *top = NULL;
-	int s;
 
 	for (tag = tpl->tags; tag < tpl->tags + tpl->numTags; tag++) {
 		if (tag->kind == '#' || tag->kind == '^') {
@@ -136,9 +135,9 @@ c_stache_weave(CStacheEngine *engine, CStacheTemplate *tpl)
 			top = top->buddy;
 			tag->buddy->buddy = tag;
 		} else if (tag->kind == '>') {
-			s = c_stache_load_template(engine, tag->pointer + tag->keyStart, &tag->otherTpl);
-			if (s != C_STACHE_OK)
-				return s;
+			/* ignore return code - template should not fail to load just because
+			 * a referenced template is unusable. */
+			c_stache_load_template(engine, tag->pointer + tag->keyStart, &tag->otherTpl);
 		}
 	}
 
@@ -151,14 +150,13 @@ c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate 
 	size_t i;
 	CStacheTemplate *tpl;
 	void *mem;
-	int s;
 
 	for (i = 0; i < engine->numTemplates; i++) {
 		tpl = engine->templates[i];
 		if (!strcmp(tpl->name, name)) {
 			tpl->refcount++;
 			*template = tpl;
-			return C_STACHE_OK;
+			return tpl->status;
 		}
 	}
 
@@ -181,18 +179,20 @@ c_stache_load_template(CStacheEngine *engine, const char *name, CStacheTemplate 
 		free(tpl);
 		return C_STACHE_ERROR_OOM;
 	}
+	tpl->status = C_STACHE_OK;
 	tpl->refcount = 1;
 	engine->templates[engine->numTemplates++] = tpl;
 	
 	tpl->text = engine->read(name, &tpl->length);
-	if (!tpl->text)
-		return C_STACHE_ERROR_IO;
-	if ((s = c_stache_parse(engine, tpl)) < 0)
-		return s;
-	if ((s = c_stache_weave(engine, tpl)) < 0)
-		return s;
+	if (!tpl->text) {
+		tpl->status = C_STACHE_ERROR_IO;
+		return tpl->status;
+	}
+	if ((tpl->status = c_stache_parse(engine, tpl)) < 0)
+		return tpl->status;
+	if ((tpl->status = c_stache_weave(engine, tpl)) < 0)
+		return tpl->status;
 
-	tpl->usable = 1;
 	return C_STACHE_OK;
 }
 
@@ -229,7 +229,7 @@ c_stache_render_recursive(const CStacheTemplate *tpl, CStacheModel *model, CStac
 	size_t written;
 	int s;
 
-	if (!tpl->usable)
+	if (tpl->status != C_STACHE_OK)
 		return C_STACHE_ERROR_BAD_TPL;
 
 	while (tag < tpl->tags + tpl->numTags) {

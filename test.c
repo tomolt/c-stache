@@ -138,8 +138,14 @@ test_failure_handling(void)
 	};
 
 	CStacheTemplate *template;
-	dh_assertiq(c_stache_load_template(&engine, "badpartial", &template), C_STACHE_ERROR_NO_END);
-	dh_assert(template != NULL && !template->usable);
+	dh_assertiq(c_stache_load_template(&engine, "badpartial", &template), C_STACHE_OK);
+	dh_assert(template != NULL);
+
+	CStacheTemplate *partial;
+	dh_assertiq(c_stache_load_template(&engine, "noend", &partial), C_STACHE_ERROR_NO_END);
+	dh_assert(partial != NULL);
+	dh_assertiq(partial->refcount, 2);
+	c_stache_drop_template(&engine, partial);
 
 	dh_assertiq(c_stache_render(template, &model, &sink), C_STACHE_ERROR_BAD_TPL);
 

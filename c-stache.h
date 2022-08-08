@@ -52,7 +52,7 @@ struct c_stache_template {
 	char         *text;
 	size_t        length;
 	unsigned int  refcount;
-	unsigned char usable;
+	char          status;
 };
 
 struct c_stache_engine {
