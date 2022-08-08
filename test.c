@@ -156,12 +156,39 @@ test_failure_handling(void)
 	dh_pop();
 }
 
+static void
+test_escape_xml(void)
+{
+	char buf[7];
+	const char *text = "<>x";
+	const char *ptr = text;
+	size_t num;
+
+	dh_push("escape xml");
+
+	dh_push("reentry");
+
+	num = c_stache_escape_xml(&ptr, buf, sizeof buf);
+	dh_assertiq(num, 4);
+	dh_assert(!strncmp(buf, "&lt;", 4));
+
+	num = c_stache_escape_xml(&ptr, buf, sizeof buf);
+	dh_assertiq(num, 5);
+	dh_assert(!strncmp(buf, "&gt;x", 5));
+	dh_assert(!*ptr);
+
+	dh_pop();
+
+	dh_pop();
+}
+
 int
 main()
 {
 	dh_init(stderr);
 	dh_branch( test_complete_runthrough(); )
 	dh_branch( test_failure_handling(); )
+	dh_branch( test_escape_xml(); );
 	dh_summarize();
 	return 0;
 }
